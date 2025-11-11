@@ -6,9 +6,10 @@ use Exception;
 use App\Models\Room;
 use App\Models\RoomType;
 use Illuminate\Http\Request;
+use App\Services\ImageServices;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use App\Http\Requests\StoreRoomRequest;
+use Illuminate\Support\Facades\Storage;
 
 class RoomController extends Controller
 {
@@ -54,11 +55,7 @@ class RoomController extends Controller
 
         try {
             // Upload gambar
-            $imagePath = $request->file('image')->storeAs(
-                'images',
-                time() . '.' . $request->file('image')->extension(),
-                'public'
-            );
+            $imagePath = ImageServices::upload($request->file('image'), 'images'); // TODO: Ubah path gambar sesuai kebutuhan
 
             // Simpan kamar
             Room::create([
@@ -95,7 +92,7 @@ class RoomController extends Controller
 
 public function detail($id)
 {
-    $room = Room::with(['roomType', 'facilities'])->findOrFail($id);
+    $room = Room::with(['roomType' ])->findOrFail($id);
 
     return view('private.admin.room.detail', [
         'room' => $room,
@@ -142,11 +139,7 @@ public function edit($id)
                     Storage::disk('public')->delete($room->image);
                 }
 
-                $validated['image'] = $request->file('image')->storeAs(
-                    'images',
-                    time() . '.' . $request->file('image')->extension(),
-                    'public'
-                );
+                $validated['image'] = ImageServices::upload($request->file('image'), 'images');
             }
 
             // Update data kamar
