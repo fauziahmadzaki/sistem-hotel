@@ -13,21 +13,21 @@ return new class extends Migration
     {
         Schema::create('reservations', function (Blueprint $table) {
             $table->id();
+            $table->timestamps();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade')->nullable();
             $table->foreignId('room_id')->constrained('rooms')->onDelete('cascade');
-            $table->string('person_name');
-            $table->string('person_phone_number');
+            $table->string('name');
+            $table->string('phone_number');
+            $table->string('identity', 16);
             $table->longText('notes')->nullable();
-            $table->date('check_in_date');
-            $table->date('check_out_date');
-            $table->date('confirmation_date')->nullable();
-            $table->date('cancellation_date')->nullable();
+            $table->date('checkin_date');
+            $table->date('checkout_date');
             $table->integer('total_guests')->default(1);
-            $table->decimal('total_price', 10, 2)->nullable();
-            $table->integer('number_of_nights')->nullable();
+            $table->decimal('payment_amount', 10, 2)->nullable();
+            $table->decimal('deposit', 10, 2)->default(0);
+            $table->decimal('fines', 10, 2)->default(0);
             $table->enum('payment_method', ['cash', 'transfer', 'card'])->default('cash');
-            $table->enum('status', ['pending', 'cancelled', 'checked_in', 'completed'])->default('pending');
-            $table->timestamps();
+            $table->enum('status', [ 'cancelled', 'checkin', 'pending', 'completed'])->default('checkin');
         });
     }
 

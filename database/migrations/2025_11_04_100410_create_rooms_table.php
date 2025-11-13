@@ -20,7 +20,6 @@ return new class extends Migration
             $table->longText('room_description')->nullable();
             $table->integer('room_capacity');
             $table->integer('room_price');
-            $table->longText('image');
             $table->enum('room_status', ['available', 'booked', 'maintenance'])->default('available');
         });
     }

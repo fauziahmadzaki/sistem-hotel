@@ -18,7 +18,8 @@ class RoleMiddleware
     {
          if(!Auth::check()){
             return redirect('/login');
-        }
+            }
+            
         $user = Auth::user();
 
         

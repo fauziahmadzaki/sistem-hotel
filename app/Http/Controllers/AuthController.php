@@ -16,21 +16,19 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $validated = $request->validated();
-        $email = $validated['email'];
-        $password = $validated['password'];
-
-        if (Auth::attempt(['email' => $email, 'password' => $password])) {
+        $credentials = $request->validated();
+        
+        if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
             $user = Auth::user();
-            switch ($user->role) {
-                case 'admin':
-                    return redirect()->intended('/admin');
-                case 'receptionist':
-                    return redirect()->intended('/receptionist');
-                default:
-                    return redirect()->intended('/');
-            }
+            $routes = [
+                "admin" => "dashboard.admin.index",
+                "superadmin" => "dashboard.superadmin.index",
+                "housekeeper" => "dashboard.housekeeping.index",
+            ];
+
+            return redirect()->route($routes[$user->role]);
+
         }
 
         return back()->with('error', 'Email atau password salah!');
