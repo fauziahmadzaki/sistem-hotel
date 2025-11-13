@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Models\Facility;
-use Illuminate\Database\Seeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+use App\Models\Facility;
 
 class FacilitySeeder extends Seeder
 {
@@ -13,40 +13,24 @@ class FacilitySeeder extends Seeder
      */
     public function run(): void
     {
-        Facility::insert([
-            [
-                'facility_name' => 'Wifi',
-            ],
-            [
-                'facility_name' => 'TV',
-            ],
-            [
-                'facility_name' => 'AC',
-            ],
-            [
-                'facility_name' => 'Kasur Single Bed',
-            ],
-            [
-                'facility_name' => 'Kasur Double Bed',
-            ],
-            [
-                'facility_name' => 'Kasur King Bed',
-            ],
-            [
-                'facility_name' => 'Kasur Queen Bed',
-            ],
-            [
-                'facility_name' => 'Kasur Twin Bed',
-            ],
-            [
-                'facility_name' => 'Kasur Sofa Bed',
-            ],
-            [
-                'facility_name' => 'Kolam Renang',
-            ],
-            [
-                'facility_name' => 'Kasur Sofa Bed',
-            ],
-        ]);
+        $facilities = [
+            ['facility_name' => 'WiFi Gratis'],
+            ['facility_name' => 'AC'],
+            ['facility_name' => 'TV 42 Inch'],
+            ['facility_name' => 'Kamar Mandi Shower'],
+            ['facility_name' => 'Kamar Mandi Bathtub'],
+            ['facility_name' => 'Sarapan Gratis'],
+            ['facility_name' => 'Kopi & Teh'],
+            ['facility_name' => 'Minibar'],
+            ['facility_name' => 'Balkon Pribadi'],
+            ['facility_name' => 'Pemandangan Laut'],
+        ];
+
+        // Kosongkan tabel dulu jika perlu
+        // DB::table('facilities')->truncate();
+
+        foreach ($facilities as $facility) {
+            Facility::create($facility);
+        }
     }
 }

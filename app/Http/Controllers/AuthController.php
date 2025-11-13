@@ -16,80 +16,55 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-    $validated = $request->validated();
-    $input = $request->input('email'); 
-    $password = $request->input('password');
+        $credentials = $request->validated();
+        
+        if (Auth::attempt($credentials)) {
+            $request->session()->regenerate();
+            $user = Auth::user();
+            $routes = [
+                "admin" => "dashboard.admin.index",
+                "superadmin" => "dashboard.superadmin.index",
+                "housekeeper" => "dashboard.housekeeping.index",
+            ];
 
-    $fieldType = filter_var($input, FILTER_VALIDATE_EMAIL) ? 'email' : 'name';
+            return redirect()->route($routes[$user->role]);
 
-    if ($fieldType === 'name') {
-        $user = \App\Models\User::where('name', $input)->first();
-
-        if (!$user || $user->role !== 'admin') {
-            return back()->withErrors([
-                'email' => 'Kredensial tidak valid.',
-            ])->onlyInput('email');
         }
 
-        if (!\Hash::check($password, $user->password)) {
-            return back()->withErrors([
-                'email' => 'Kredensial tidak valid.',
-            ])->onlyInput('email');
-        }
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        return redirect()->intended('/admin');
-    }
-
-    // Kalau login pakai email seperti biasa
-    if (Auth::attempt(['email' => $input, 'password' => $password])) {
-        $request->session()->regenerate();
-        $user = Auth::user();
-
-        switch ($user->role) {
-            case 'admin':
-                return redirect()->intended('/admin');
-            case 'receptionist':
-                return redirect()->intended('/receptionist');
-            default:
-                return redirect()->intended('/');
-        }
-    }
-
-    return back()->withErrors([
-        'email' => 'Kredensial tidak valid.',
-    ])->onlyInput('email');
+        return back()->with('error', 'Email atau password salah!');
 }
 
     public function register(StoreUserRequest $request)
     {
         $validated = $request->validated();
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+            ]);
 
-        
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-        ]);
+            $user->profile()->create([
+                    'phone_number' => null,
+                    'address'      => null,
+                    'gender'       => null,
+                ]);
 
-        $user->profile()->create([
-            'phone_number' => null,
-            'address'      => null,
-            'gender'       => null,
-        ]);
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollback();
+            return back()->with('error', 'Gagal membuat akun: ' . $th->getMessage());
+        }
 
-        return redirect()
-            ->back()
-            ->with('success', 'Registrasi berhasil! Silakan login.');
+        return redirect()->route('login')->with('success', 'Akun berhasil dibuat! Silakan login.');
     }
 
   
     public function logout(Request $request)
     {
         Auth::logout();
-
+        
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

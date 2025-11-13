@@ -3,326 +3,350 @@
 namespace App\Http\Controllers;
 
 use App\Models\Room;
-use App\Models\Income;
+use App\Models\User;
 use App\Models\Reservation;
+use App\Models\Transaction; 
+use App\Models\HousekeepingCheck;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Requests\StoreReservationRequest;
 use App\Http\Requests\UpdateReservationRequest;
+use Illuminate\Validation\ValidationException;
 
 class ReservationController extends Controller
 {
+
     public function index()
     {
-        $reservations = Reservation::with('room')
-            ->whereNotIn('status', ['completed', 'cancelled'])
+        $reservations = Reservation::with('room', 'user')
+            ->whereIn('status', ['checkin', 'pending'])
             ->latest()
-            ->get();
-
-        $view = Auth::user()->role === 'receptionist'
-            ? 'private.receptionist.reservations.index'
-            : 'private.admin.reservations.index';
-
-        return view($view, compact('reservations'));
-    }
-
-public function create()
-{
-    $rooms = Room::where('room_status', 'available')->get();
-
-    if ($rooms->isEmpty()) {
-        $route = Auth::user()->role === 'receptionist'
-            ? 'receptionist.reservations.index'
-            : 'admin.reservations.index';
-
-        return redirect()->route($route)
-            ->with('error', 'Tidak ada kamar yang tersedia.');
-    }
-            session()->put('reservation_preview', new Reservation());
-    $view = Auth::user()->role === 'receptionist'
-        ? 'private.receptionist.reservations.create'
-        : 'private.admin.reservations.create';
-    return view($view, compact('rooms'));
-}
-
-public function store(StoreReservationRequest $request)
-{
-    $validated = $request->validated();
-    
-    $reservation = session('reservation_preview', new Reservation());
-
-
-    $room = Room::findOrFail($validated['room_id']);
-
-    $days = now()->parse($validated['check_in_date'])
-        ->diffInDays(now()->parse($validated['check_out_date']));
-
-    if ($days <= 0) {
-        return back()->with('error', 'Tanggal check-out harus lebih besar dari tanggal check-in.');
-    }
-
-    $totalPrice = $days * $room->room_price;
-
-    // PERBAIKAN: Isi objek $reservation, jangan buat array baru
-    $reservation->fill($validated); // Isi data dari form
-    $reservation->days = $days;
-    $reservation->total_price = $totalPrice;
-    
-    // Simpan data tambahan untuk preview (bahkan jika bukan kolom di tabel)
-    $reservation->room_name = $room->room_name;
-    $reservation->room_price = $room->room_price;
-
-    // PERBAIKAN: Simpan *objek* yang sudah diisi kembali ke sesi
-    session(['reservation_preview' => $reservation]);
-
-    $route = Auth::user()->role === 'admin'
-        ? 'admin.reservations.preview'
-        : 'receptionist.reservations.preview';
-
-    return redirect()->route($route, $validated['room_id']);
-}
-
-public function preview($id)
-{
-    $reservation = session('reservation_preview');
-
-    if (!$reservation || !$reservation->room_id) {
-        $createRoute = Auth::user()->role === 'receptionist'
-            ? 'receptionist.reservations.create'
-            : 'admin.reservations.create';
+            ->paginate(10);
             
-        return redirect()->route($createRoute)
-            ->with('error', 'Data reservasi tidak ditemukan, silakan isi ulang.');
+        return view('dashboard.reservations.index', compact('reservations'));
     }
 
-    if ($reservation->room_id != $id) {
-        return redirect()
-            ->route('guest.reservations.create1', $id) // Sesuaikan route ini jika perlu
-            ->with('error', 'Terjadi kesalahan, ID ruangan tidak cocok. Silakan ulangi.');
-    }
-
-    $room = Room::findOrFail($id);
-
- 
-    $checkin = Carbon::parse($reservation->check_in_date);
-    $checkout = Carbon::parse($reservation->check_out_date);
-    
-    $days = $reservation->days;
-
-   
-    $reservation->tax = $reservation->total_price * 0.1;
-    $reservation->grand_total = $reservation->total_price + $reservation->tax;
-
-   
-    session(['reservation_preview' => $reservation]);
-
-    $view = Auth::user()->role === 'receptionist'
-        ? 'private.receptionist.reservations.confirm'
-        : 'private.admin.reservations.confirm';
-
-    return view($view, compact('room', 'reservation'));
-
-}
-
- public function save(Request $request)
+    public function completed()
     {
+        $reservations = Reservation::with('room', 'user')
+            ->where('status', 'completed')
+            ->latest()
+            ->paginate(10);
+            
+        return view('dashboard.reservations.completed', compact('reservations'));
+    }
 
-        $reservation = session('reservation_preview');
+    public function cancelled()
+    {
+        $reservations = Reservation::with('room', 'user')
+            ->where('status', 'cancelled')
+            ->latest()
+            ->paginate(10);
+            
+        return view('dashboard.reservations.cancelled', compact('reservations'));
+    }
 
-        // 2. Tentukan route 'create' untuk redirect jika terjadi error
-        $createRoute = Auth::user()->role === 'receptionist'
-            ? 'receptionist.reservations.create'
-            : 'admin.reservations.create';
+    public function create()
+    {
+        $availableRooms = Room::where('room_status', 'available')->get();
+        
+        return view('dashboard.reservations.create', compact('availableRooms'));
+    }
 
-        if (!$reservation || !$reservation->room_id) {
-            return redirect()->route($createRoute)
-                ->with('error', 'Sesi reservasi telah berakhir. Silakan isi ulang.');
-        }
+    public function store(StoreReservationRequest $request)
+    {
+       
+        $validatedData = $request->validated();
 
-        $room = Room::findOrFail($reservation->room_id);
+        // if ($validatedData['deposit'] < 300000) {
+        //     throw ValidationException::withMessages([
+        //         'deposit' => 'Deposit minimal adalah Rp 300.000.',
+        //     ]);
+        // }
+
+        $room = Room::findOrFail($validatedData['room_id']);
 
         if ($room->room_status !== 'available') {
-            return redirect()->route($createRoute)
-                ->with('error', 'Maaf, kamar ini baru saja dipesan. Silakan pilih kamar lain.');
+            throw ValidationException::withMessages([
+                'room_id' => 'Kamar ini sudah tidak tersedia. Silakan pilih kamar lain.',
+            ]);
         }
-
-        // 5. Mulai Transaksi Database
+        
         DB::beginTransaction();
         try {
-            
-            // 6. Buat record Reservasi baru
-            Reservation::create([
-                'user_id' => Auth::id(),
-                'room_id' => $reservation->room_id,
-                'person_name' => $reservation->person_name,
-                'person_phone_number' => $reservation->person_phone_number,
-                'check_in_date' => $reservation->check_in_date,
-                'check_out_date' => $reservation->check_out_date,
-                'total_guests' => $reservation->total_guests,
-                
-                // Ambil data kalkulasi dari sesi
-                'total_price' => $reservation->total_price, // Ini adalah subtotal
-                'tax' => $reservation->tax,
-                'grand_total' => $reservation->grand_total, // Ini adalah total akhir
-
-                'payment_method' => $reservation->payment_method,
-                'notes' => $reservation->notes ?? null,
-                'status' => $reservation->status, // 'pending' atau 'checked_in'
+            $reservation = Reservation::create($validatedData + [
+                'user_id' => auth()->id() ?? null, // Tambahkan user_id jika ada
+                'status' => 'checkin' // Sesuai default migrasi
             ]);
 
-            // 7. Update status kamar menjadi 'booked'
             $room->update(['room_status' => 'booked']);
 
-            // 8. Commit transaksi jika sukses
+            Transaction::create([
+                'type' => 'income',
+                'category' => 'deposit',
+                'amount' => $reservation->deposit,
+                'description' => "Deposit (Jaminan) untuk Reservasi #{$reservation->id} (Tamu: {$reservation->name})",
+            ]);
+
             DB::commit();
 
-            // 9. Hapus data dari sesi
-            session()->forget('reservation_preview');
+            return redirect()->route('dashboard.reservations.index')->with('success', 'Reservasi berhasil dibuat dan kamar telah dibooking.');
 
-            // 10. Redirect ke halaman index dengan pesan sukses
-            $indexRoute = Auth::user()->role === 'receptionist'
-                ? 'receptionist.reservations.index'
-                : 'admin.reservations.index';
-
-            return redirect()->route($indexRoute)->with('success', 'Reservasi berhasil disimpan!');
-
-        } catch (\Throwable $e) {
-            // 11. Rollback jika terjadi error
+        } catch (\Exception $e) {
             DB::rollBack();
-            
-            Log::error('Gagal menyimpan reservasi: ' . $e->getMessage()); 
-            
-            return back()->with('error', 'Gagal menyimpan reservasi: Terjadi kesalahan server.');
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())->withInput();
         }
     }
 
-        public function show(Reservation $reservation) // Gunakan Route Model Binding
+    public function edit(Reservation $reservation)
     {
-        $reservation->load(['room.roomType', 'user']);
+        $availableRooms = Room::where('room_status', 'available')->get();
+        $allRooms = $availableRooms->push($reservation->room)->unique('id');
 
-        $view = Auth::user()->role === 'receptionist'
-            ? 'private.receptionist.reservations.detail'
-            : 'private.admin.reservations.detail';
+        return view('dashboard.reservations.edit', compact('reservation', 'allRooms'));
+    }
+
+    public function update(UpdateReservationRequest $request, Reservation $reservation)
+    {
+        $validatedData = $request->validated();
+
+        DB::beginTransaction();
+        try {
+            $newRoomId = $validatedData['room_id'];
+            $oldRoomId = $reservation->room_id;
+
+            if ($newRoomId != $oldRoomId) {
+                Room::find($oldRoomId)->update(['room_status' => 'available']);
+                Room::find($newRoomId)->update(['room_status' => 'booked']);
+            }
+
+            $reservation->update($validatedData);
+
+            DB::commit();
+            return redirect()->route('dashboard.reservations.index')->with('success', 'Data reservasi berhasil diperbarui.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage())->withInput();
+        }
+    }
+
+    public function showCheckForm(Reservation $reservation)
+    {
+        $checkinDate = new \DateTime($reservation->checkin_date);
+        $checkoutDate = new \DateTime($reservation->checkout_date);
+        $durationInDays = $checkoutDate->diff($checkinDate)->days;
+        if ($durationInDays == 0) $durationInDays = 1;
+
+        $roomCost = $reservation->room->room_price * $durationInDays;
         
-        $room = $reservation->room;
+        $subTotal = $roomCost;
+        
+        $totalDue = ($subTotal + $reservation->fines) - $reservation->deposit;
 
-        return view($view, compact('reservation', 'room'));
+        $checkStatus = $reservation->housekeepingCheck; // Menggunakan relasi
+        $housekeepers = User::where('role', 'housekeeper')->get();
+
+        return view('dashboard.reservations.checkout', compact(
+            'reservation', 
+            'roomCost', 
+            'subTotal', 
+            'totalDue',
+            'durationInDays',
+            'checkStatus',
+            'housekeepers'
+        ));
     }
 
-   public function edit(Reservation $reservation)
+    public function requestHousekeepingCheck(Request $request, Reservation $reservation)
     {
-        $view = Auth::user()->role === 'receptionist'
-            ? 'private.receptionist.reservations.edit'
-            : 'private.admin.reservations.edit';
+        $validated = $request->validate([
+            'housekeeper_id' => 'required|exists:users,id'
+        ], [
+            'housekeeper_id.required' => 'Silakan pilih housekeeper yang akan bertugas.'
+        ]);
 
-        return view($view, compact('reservation'));
-    }
-public function update(UpdateReservationRequest $request, Reservation $reservation)
-    {
-        // PERBAIKAN: Validasi sudah otomatis, ambil data
-        $validated = $request->validated();
-
-        $room = $reservation->room;
-        $newPriceData = [];
-
-        // Cek apakah tanggal berubah. Jika ya, hitung ulang harga.
-        $checkInChanged = $validated['check_in_date'] !== $reservation->check_in_date->format('Y-m-d');
-        $checkOutChanged = $validated['check_out_date'] !== $reservation->check_out_date->format('Y-m-d');
-
-        if ($checkInChanged || $checkOutChanged) {
-            $days = Carbon::parse($validated['check_in_date'])
-                ->diffInDays(Carbon::parse($validated['check_out_date']));
-            
-            if ($days <= 0) $days = 1; // Minimum 1 malam
-
-            $totalPrice = $days * $room->room_price;
-            $tax = $totalPrice * 0.1;
-            $grandTotal = $totalPrice + $tax;
-
-            $newPriceData = [
-                'total_price' => $totalPrice,
-                'tax' => $tax,
-                'grand_total' => $grandTotal,
-            ];
+        $existingCheck = HousekeepingCheck::where('reservation_id', $reservation->id)->first();
+        if ($existingCheck) {
+            return back()->with('error', 'Permintaan pengecekan untuk reservasi ini sudah dibuat.');
         }
 
         DB::beginTransaction();
         try {
-            $oldStatus = $reservation->status;
-            $newStatus = $validated['status'];
+            HousekeepingCheck::create([
+                'reservation_id' => $reservation->id,
+                'housekeeper_id' => $validated['housekeeper_id'],
+                'status' => 'needs_to_be_done',
+            ]);
 
-            // PERBAIKAN: Logika status yang benar
+            $reservation->update(['status' => 'pending']);
 
-            // Cek apakah status baru adalah 'selesai' (cancelled atau completed)
-            $newStatusIsFinished = in_array($newStatus, ['cancelled', 'completed']);
-            // Cek apakah status lama adalah 'selesai'
-            $oldStatusIsFinished = in_array($oldStatus, ['cancelled', 'completed']);
+            DB::commit();
+
+            return back()->with('success', 'Permintaan pengecekan telah dikirim. Status reservasi diubah ke Pending.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    public function processCheckout(Request $request, Reservation $reservation)
+    {
+        $check = $reservation->housekeepingCheck;
+        if (!$check || $check->status !== 'done') {
+            return back()->with('error', 'Checkout Gagal! Kamar belum diperiksa atau status pengecekan belum selesai.');
+        }
+
+        $validated = $request->validate([
+            'fines' => 'nullable|numeric|min:0',
+            'payment_method' => 'required|in:cash,transfer,card',
+            'notes' => 'nullable|string',
+        ]);
+
+        $fines = $validated['fines'] ?? 0;
+
+        $checkinDate = new \DateTime($reservation->checkin_date);
+        $checkoutDate = new \DateTime($reservation->checkout_date);
+        $durationInDays = $checkoutDate->diff($checkinDate)->days;
+        if ($durationInDays == 0) $durationInDays = 1;
+        
+        $roomCost = $reservation->room->room_price * $durationInDays;
+        
+        $totalPaymentAmount = $roomCost + $fines;
+
+        DB::beginTransaction();
+        try {
+            Transaction::create([
+                'type' => 'income',
+                'category' => 'rental',
+                'amount' => $roomCost,
+                'description' => "Pembayaran Kamar ({$durationInDays} hari) - Reservasi #{$reservation->id} (Tamu: {$reservation->name})",
+            ]);
+
+            if ($fines > 0) {
+                Transaction::create([
+                    'type' => 'income',
+                    'category' => 'other', // Anda bisa ubah ke 'maintenance' jika perlu
+                    'amount' => $fines,
+                    'description' => "Denda Pelanggaran - Reservasi #{$reservation->id} (Tamu: {$reservation->name})",
+                ]);
+            }
+
+            if ($reservation->deposit > 0) {
+                Transaction::create([
+                    'type' => 'expense',
+                    'category' => 'deposit',
+                    'amount' => $reservation->deposit,
+                    'description' => "Pengembalian Deposit (Checkout) - Reservasi #{$reservation->id} (Tamu: {$reservation->name})",
+                ]);
+            }
+
+            $reservation->update([
+                'fines' => $fines,
+                'payment_amount' => $totalPaymentAmount, 
+                'payment_method' => $validated['payment_method'],
+                'notes' => $validated['notes'] ?? $reservation->notes,
+                'status' => 'completed',
+                
+            ]);
+
+            $reservation->room->update(['room_status' => 'maintenance']);
+
+            DB::commit();
+
+            return redirect()->route('dashboard.reservations.completed')->with('success', 'Checkout berhasil. Status kamar diubah ke Maintenance.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Terjadi kesalahan saat checkout: ' . $e->getMessage());
+        }
+    }
+
+        public function show(Reservation $reservation)
+    {
+        
+        $checkinDate = new \DateTime($reservation->checkin_date);
+        $checkoutDate = new \DateTime($reservation->checkout_date);
+        $durationInDays = $checkoutDate->diff($checkinDate)->days;
+        if ($durationInDays == 0) $durationInDays = 1;
 
 
-            // LOGIKA 1: Jika status diubah MENJADI 'selesai' (dari aktif)
-            // (misal: pending -> cancelled ATAU checked_in -> completed)
-            if ($newStatusIsFinished && !$oldStatusIsFinished) {
-                $room->update(['room_status' => 'available']);
-            } 
-            
-            // LOGIKA 2: Jika status diubah DARI 'selesai' (menjadi aktif kembali)
-            // (misal: cancelled -> pending ATAU completed -> checked_in)
-            elseif (!$newStatusIsFinished && $oldStatusIsFinished) {
-                // Periksa apakah kamar masih tersedia (karena mungkin sudah dibooking orang lain)
-                if ($room->room_status !== 'available') {
-                    return back()->with('error', 'Kamar ini sudah dipesan orang lain. Tidak bisa mengaktifkan kembali reservasi ini.');
-                }
-                $room->update(['room_status' => 'booked']);
+        $roomCost = $reservation->room->room_price * $durationInDays;
+
+        $totalTagihan = $reservation->payment_amount ?? ($roomCost + $reservation->fines);
+        $balanceDue = $totalTagihan - $reservation->deposit;
+        $checkStatus = $reservation->housekeepingCheck;
+
+        return view('dashboard.reservations.show', compact(
+            'reservation', 
+            'durationInDays',
+            'roomCost',
+            'totalTagihan',
+            'balanceDue',
+            'checkStatus'
+        ));
+    }
+
+    public function invoice(Reservation $reservation)
+    {
+        // Logika perhitungan sama dengan show()
+        $checkinDate = new \DateTime($reservation->checkin_date);
+        $checkoutDate = new \DateTime($reservation->checkout_date);
+        $durationInDays = $checkoutDate->diff($checkinDate)->days;
+        if ($durationInDays == 0) $durationInDays = 1;
+
+        $roomCost = $reservation->room->room_price * $durationInDays;
+        
+        // Jika status 'completed', ambil dari payment_amount
+        if ($reservation->status == 'completed') {
+            $totalTagihan = $reservation->payment_amount; // Ini sudah termasuk denda
+        } else {
+            // Jika belum checkout, hitung manual (denda mungkin masih 0)
+            $totalTagihan = $roomCost + $reservation->fines;
+        }
+        
+        $balanceDue = $totalTagihan - $reservation->deposit;
+
+        return view('dashboard.reservations.invoice', compact(
+            'reservation', 
+            'durationInDays',
+            'roomCost',
+            'totalTagihan',
+            'balanceDue'
+        ));
+    }
+
+    public function cancel(Reservation $reservation)
+    {
+       
+        if (!in_array($reservation->status, ['pending', 'checkin'])) {
+            return back()->with('error', 'Reservasi ini tidak dapat dibatalkan.');
+        }
+
+        DB::beginTransaction();
+        try {
+       
+            $reservation->update(['status' => 'cancelled']);
+
+            $reservation->room->update(['room_status' => 'available']);
+
+            if ($reservation->deposit > 0) {
+                Transaction::create([
+                    'type' => 'expense',
+                    'category' => 'deposit',
+                    'amount' => $reservation->deposit,
+                    'description' => "Pengembalian Deposit (Dibatalkan) - Reservasi #{$reservation->id} (Tamu: {$reservation->name})",
+                ]);
             }
             
-            if ($request->status === 'completed') {
-            \App\Models\Income::create([
-                'amount'         => $reservation->total_price,
-                'payment_method' => $reservation->payment_method ?? 'cash',
-                'type'           => 'income',
-                'date'           => now(),
-                'description'    => 'Reservasi #' . $reservation->id . ' - ' . ($reservation->room->room_name ?? 'Kamar'),
-                'category'       => 'rental',
-            ]);
-        }
-            // LOGIKA 3: Jika status berubah antar-aktif (pending -> checked_in)
-            // atau antar-selesai (cancelled -> completed), tidak ada perubahan status kamar.
-
-            // Update reservasi dengan data tervalidasi dan data harga baru (jika ada)
-            $reservation->update(array_merge($validated, $newPriceData));
-
             DB::commit();
 
-            $indexRoute = Auth::user()->role === 'receptionist'
-                ? 'receptionist.reservations.index'
-                : 'admin.reservations.index';
+            return redirect()->route('dashboard.reservations.cancelled')->with('success', 'Reservasi berhasil dibatalkan. Kamar kembali tersedia.');
 
-            return redirect()->route($indexRoute)->with('success', 'Reservasi berhasil diperbarui.');
-
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Gagal update reservasi: ' . $e->getMessage());
-            return back()->with('error', 'Terjadi kesalahan saat memperbarui reservasi.');
-        }
-    }
-    /**
-     * Hapus reservasi
-     */
-    public function destroy(Reservation $reservation)
-    {
-        DB::beginTransaction();
-        try {
-            $reservation->room->update(['room_status' => 'available']);
-            $reservation->delete();
-            DB::commit();
-
-            return back()->with('success', 'Reservasi berhasil dihapus.');
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->with('error', 'Gagal menghapus reservasi: ' . $e->getMessage());
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }
 }

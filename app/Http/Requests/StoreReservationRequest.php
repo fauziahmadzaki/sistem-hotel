@@ -2,89 +2,68 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Room; // Ditambahkan
+use Illuminate\Validation\Validator; // Ditambahkan
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\Room;
-use Illuminate\Validation\Validator;
 
 class StoreReservationRequest extends FormRequest
 {
-
+    /**
+     * Tentukan apakah user diizinkan membuat request ini.
+     */
     public function authorize(): bool
     {
-        return true;
+        // Ubah ke true, atau tambahkan logika otorisasi (misal: cek role admin)
+        return true; 
     }
 
+    /**
+     * Dapatkan aturan validasi yang berlaku untuk request ini.
+     */
     public function rules(): array
     {
         return [
             'room_id' => 'required|exists:rooms,id',
-            'person_name' => 'required|string|max:255',
+            'name' => 'required|string|max:255',
             
-            'person_phone_number' => [
+            // Diperbarui: Menggunakan regex dari file Anda
+            'phone_number' => [
                 'required',
                 'string',
-                'max:12',
+                'max:15', // Diberi sedikit ruang untuk +62
                 'regex:/^(08|\+628)\d{8,12}$/' 
             ],
 
-            'notes' => 'nullable|string|max:500',
-            'check_in_date' => 'required|date|after_or_equal:today',
-            'check_out_date' => 'required|date|after:check_in_date',
-            'total_guests' => 'required|integer|min:1', 
+            'identity' => 'required|string|size:16', // Sesuai migrasi (NIK KTP)
+            'notes' => 'nullable|string',
+            'checkin_date' => 'required|date|after_or_equal:today',
+            'checkout_date' => 'required|date|after:checkin_date',
+            'total_guests' => 'required|integer|min:1',
+            'deposit' => 'required|numeric|min:300000', // Aturan Bisnis: Minimal deposit
             'payment_method' => 'required|in:cash,transfer,card',
-            'status' => 'nullable|in:pending,confirmed,checked_in,completed,cancelled',
-            'total_price' => 'nullable|numeric|min:0',
         ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'room_id.required' => 'Kamar wajib dipilih.',
-            'room_id.exists' => 'Kamar yang dipilih tidak valid.',
-
-            'person_name.required' => 'Nama pemesan wajib diisi.',
-            'person_name.string' => 'Nama pemesan harus berupa teks.',
-            'person_name.max' => 'Nama pemesan maksimal 255 karakter.',
-
-            'person_phone_number.required' => 'Nomor telepon wajib diisi.',
-            'person_phone_number.string' => 'Nomor telepon harus berupa teks.',
-            'person_phone_number.max' => 'Nomor telepon maksimal 12 karakter.',
-            'person_phone_number.regex' => 'Format nomor telepon tidak valid. Gunakan 08... atau +628...',
-
-            'notes.max' => 'Catatan maksimal 500 karakter.',
-
-            'check_in_date.required' => 'Tanggal check-in wajib diisi.',
-            'check_in_date.date' => 'Tanggal check-in tidak valid.',
-            'check_in_date.after_or_equal' => 'Tanggal check-in minimal hari ini.',
-
-            'check_out_date.required' => 'Tanggal check-out wajib diisi.',
-            'check_out_date.date' => 'Tanggal check-out tidak valid.',
-            'check_out_date.after' => 'Tanggal check-out harus setelah tanggal check-in.',
-
-            'total_guests.required' => 'Jumlah tamu wajib diisi.',
-            'total_guests.integer' => 'Jumlah tamu harus berupa angka.',
-            'total_guests.min' => 'Minimal 1 tamu.',
-
-            'payment_method.required' => 'Metode pembayaran wajib dipilih.',
-            'payment_method.in' => 'Metode pembayaran tidak valid.',
-
-            'status.in' => 'Status reservasi tidak valid.',
-
-            'total_price.numeric' => 'Total harga harus berupa angka.',
-            'total_price.min' => 'Total harga tidak boleh negatif.',
-        ];
-    }
-
-    protected function prepareForValidation(): void
-    {
-        $this->merge([
-            'status' => $this->status ?? 'pending',
-        ]);
     }
 
     /**
-     * 
+     * Custom message untuk validasi.
+     */
+    public function messages(): array
+    {
+        return [
+            'room_id.required' => 'Silakan pilih kamar.',
+            'room_id.exists' => 'Kamar yang dipilih tidak valid.',
+            'identity.size' => 'Nomor Identitas (NIK) harus 16 digit.',
+            'deposit.min' => 'Deposit jaminan minimal adalah Rp 300.000.',
+            'checkout_date.after' => 'Tanggal checkout harus setelah tanggal checkin.',
+
+            // Ditambahkan: Pesan untuk regex telepon
+            'phone_number.regex' => 'Format nomor telepon tidak valid. Gunakan 08... atau +628...',
+        ];
+    }
+
+    /**
+     * Ditambahkan: Logika validasi kustom dari file Anda
+     * untuk mengecek kapasitas kamar.
      *
      * @param \Illuminate\Validation\Validator $validator
      * @return void
@@ -99,7 +78,6 @@ class StoreReservationRequest extends FormRequest
 
             if ($roomId && $totalGuests) {
                 $room = Room::find($roomId);
-
                 if ($room) {
                     if ($totalGuests > $room->room_capacity) {
                         $validator->errors()->add(

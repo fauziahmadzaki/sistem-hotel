@@ -4,114 +4,53 @@ namespace App\Http\Controllers;
 
 use App\Models\Facility;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 
 class FacilityController extends Controller
 {
-
     public function index()
     {
-        $facilities = Facility::orderBy('created_at', 'desc')->get();
-
-        return view('private.admin.facilities.index', compact('facilities'));
+        $facilities = Facility::withCount('roomTypes')->latest()->paginate(10);
+        return view('dashboard.facilities.index', compact('facilities'));
     }
 
     public function create()
     {
-        return view('private.admin.facilities.create');
+        return view('dashboard.facilities.create');
     }
 
     public function store(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $validated = $request->validate([
             'facility_name' => 'required|string|max:255|unique:facilities,facility_name',
-        ], [
-            'facility_name.required' => 'Nama fasilitas harus diisi.',
-            'facility_name.string' => 'Nama fasilitas harus berupa teks.',
-            'facility_name.max' => 'Nama fasilitas maksimal 255 karakter.',
-            'facility_name.unique' => 'Nama fasilitas sudah terdaftar.',
         ]);
 
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
+        Facility::create($validated);
 
-        DB::beginTransaction();
-        try {
-            Facility::create([
-                'facility_name' => $validator->validated()['facility_name'],
-            ]);
-
-            DB::commit();
-            return redirect()->route('admin.facilities.index')
-                ->with('success', 'Fasilitas berhasil ditambahkan!');
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal menambahkan fasilitas: ' . $th->getMessage());
-        }
+        return redirect()->route('dashboard.facilities.index')->with('success', 'Fasilitas baru berhasil ditambahkan.');
     }
 
-    /**
-     * Halaman edit fasilitas
-     */
-    public function show(Facility $facility)
+    public function edit(Facility $facility)
     {
-        return view('private.admin.facilities.edit', compact('facility'));
+        return view('dashboard.facilities.edit', compact('facility'));
     }
 
-    /**
-     * Update fasilitas
-     */
     public function update(Request $request, Facility $facility)
     {
-        $validator = Validator::make($request->all(), [
+        $validated = $request->validate([
             'facility_name' => 'required|string|max:255|unique:facilities,facility_name,' . $facility->id,
-        ], [
-            'facility_name.required' => 'Nama fasilitas harus diisi.',
-            'facility_name.string' => 'Nama fasilitas harus berupa teks.',
-            'facility_name.max' => 'Nama fasilitas maksimal 255 karakter.',
-            'facility_name.unique' => 'Nama fasilitas sudah terdaftar.',
         ]);
 
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
+        $facility->update($validated);
 
-        DB::beginTransaction();
-        try {
-            $facility->update([
-                'facility_name' => $validator->validated()['facility_name'],
-            ]);
-
-            DB::commit();
-            return redirect()->route('admin.facilities.index')
-                ->with('success', 'Fasilitas berhasil diperbarui!');
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal mengubah fasilitas: ' . $th->getMessage());
-        }
+        return redirect()->route('dashboard.facilities.index')->with('success', 'Fasilitas berhasil diperbarui.');
     }
 
-    /**
-     * Hapus fasilitas
-     */
     public function destroy(Facility $facility)
     {
-        DB::beginTransaction();
-        try {
-            $facility->delete();
+        // Hapus relasi di pivot table, lalu hapus fasilitas
+        $facility->roomTypes()->detach();
+        $facility->delete();
 
-            DB::commit();
-            return redirect()->route('admin.facilities.index')
-                ->with('success', 'Fasilitas berhasil dihapus!');
-        } catch (\Throwable $th) {
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Gagal menghapus fasilitas: ' . $th->getMessage());
-        }
+        return redirect()->route('dashboard.facilities.index')->with('success', 'Fasilitas berhasil dihapus.');
     }
 }

@@ -13,30 +13,47 @@ class Reservation extends Model
     protected $fillable = [
         'user_id',
         'room_id',
-        'person_name',
-        'person_phone_number',
+        'name', 
+        'phone_number', 
+        'identity', 
         'notes',
-        'check_in_date',
-        'check_out_date',
+        'checkin_date', 
+        'checkout_date', 
         'total_guests',
-        'total_price',
+        'payment_amount', 
+        'deposit', 
+        'fines', 
         'payment_method',
         'status',
-        'number_of_nights',
-        'confirmation_date',
-        'cancellation_date',
     ];
+
+    /**
+     * Properti $casts disesuaikan dengan tipe data di migrasi (date, bukan datetime).
+     */
     protected $casts = [
-        'check_in_date' => 'datetime',
-        'check_out_date' => 'datetime',
+        'checkin_date' => 'date',
+        'checkout_date' => 'date',
     ];
 
 
+    /**
+     * Relasi ke model Room.
+     */
     public function room()
     {
         return $this->belongsTo(Room::class);
     }
-    public function user(){
+
+    /**
+     * Relasi ke model User.
+     */
+    public function user()
+    {
         return $this->belongsTo(User::class);
+    }
+
+    public function housekeepingCheck()
+    {
+        return $this->hasOne(HousekeepingCheck::class);
     }
 }
