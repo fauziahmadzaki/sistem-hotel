@@ -1,27 +1,19 @@
-# 🏨 Hotelio - Sistem Reservasi Hotel Berbasis Web
+# Sistem Reservasi Hotel Berbasis Web
 
-**Hotelio** adalah aplikasi web untuk manajemen hotel modern yang dikembangkan menggunakan **Laravel 10** dan **Tailwind CSS**.  
+Aplikasi web untuk manajemen hotel modern yang dikembangkan menggunakan **Laravel 10** dan **Tailwind CSS**.  
 Aplikasi ini menyediakan sistem **reservasi kamar**, **pengelolaan pengguna**, dan **manajemen fasilitas** dengan antarmuka yang bersih, responsif, dan mudah digunakan.
 
 ---
 
 ## 🚀 Fitur Utama
 
-### 👤 Guest (Tamu)
-
--   Melihat daftar kamar yang tersedia
--   Melihat detail kamar dan fasilitas lengkap
--   Melakukan reservasi kamar
--   Melihat daftar reservasi pribadi
--   Melihat detail reservasi dan status
-
-### 🧾 Receptionist
+### 🧾 Admin
 
 -   Melihat dan mengelola daftar reservasi
 -   Mengubah status reservasi (pending, confirmed, check-in, completed, cancelled)
 -   Melihat detail tamu dan pemesanan
 
-### 🛠️ Admin
+### 🛠️ Superadmin
 
 -   Dashboard statistik hotel (jumlah kamar, total reservasi, total pendapatan)
 -   CRUD data kamar (Tambah, Edit, Hapus, Detail)
@@ -34,13 +26,12 @@ Aplikasi ini menyediakan sistem **reservasi kamar**, **pengelolaan pengguna**, d
 ## 🧩 Teknologi yang Digunakan
 
 | Teknologi            | Deskripsi                           |
-| -------------------- | ----------------------------------- |
+| -------------------- | ----------------------------------- | --- |
 | **Laravel 10**       | Framework backend utama             |
 | **Tailwind CSS**     | Framework CSS utility-first         |
 | **Alpine.js**        | Interaktivitas ringan pada frontend |
 | **MySQL**            | Database utama                      |
-| **Blade Components** | Komponen UI reusable                |
-| **Lucide Icons**     | Ikon SVG modern                     |
+| **Blade Components** | Komponen UI reusable                |     |
 | **Eloquent ORM**     | Manajemen relasi data antar tabel   |
 
 ---
@@ -50,8 +41,8 @@ Aplikasi ini menyediakan sistem **reservasi kamar**, **pengelolaan pengguna**, d
 ### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/username/hotelio.git
-cd hotelio
+git clone https://github.com/fauziahmadzaki/sistem-hotel.git
+cd sistem-hotel
 ```
 
 ### 2️⃣ Install Dependencies
@@ -90,19 +81,6 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
-Seeder akan membuat:
-Admin default:
-
--   Username : admin
-
--   Password: admin
-
-### 6️⃣ Link folder storage dengan public
-
-```bash
-php artisan storage:link
-```
-
 ### 7️⃣ Jalankan Server
 
 ```bash
@@ -112,37 +90,5 @@ npm run dev
 
 Buka di browser:
 👉 http://localhost:8000
-
-📦 Struktur Folder Penting
-
-```cpp
-app/
- ├─ Http/
- │   ├─ Controllers/
- │   │   ├─ AuthController.php
- │   │   ├─ AdminController.php
- │   │   ├─ GuestController.php
- │   │   ├─ ReceptionistController.php
- │   │   ├─ RoomController.php
- │   │   ├─ ReservationController.php
- │   │   └─ FacilityController.php
- │   └─ Requests/
- ├─ Models/
- └─ Views/
-     ├─ private/
-     │   ├─ admin/
-     │   ├─ guest/
-     │   └─ receptionist/
-     └─ components/
-```
-
-### 🧑‍💻 Kontributor
-
-Fauzi Ahmad Zaki Fullstack Developer
-
-### ❤️ Kredit
-
-Dibuat dengan Laravel, TailwindCSS, dan banyak kopi ☕ oleh
-Fauzi Ahmad Zaki
 
 ---
