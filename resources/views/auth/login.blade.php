@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Login | Hotelio</title>
+    <title>Login | {{ config('app.name') }}</title>
 
     {{-- Fonts (Sama seperti layout admin) --}}
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -32,7 +32,7 @@
             {{-- Header --}}
             <div>
                 <h1 class="text-center text-4xl font-bold text-violet-600">
-                    Hotelio
+                    {{ config('app.name') }}
                 </h1>
                 <h2 class="mt-2 text-center text-lg text-gray-600">
                     Selamat datang! Silakan login ke akun Anda.
