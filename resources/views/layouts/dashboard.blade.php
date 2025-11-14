@@ -38,7 +38,7 @@ $baseRoute = $routes[$role];
     <nav
         class="fixed top-0 left-0 w-full bg-white border-b border-gray-200 shadow-sm z-40 flex justify-between items-center px-5 py-3 h-[56px]">
         <h1 class="font-bold text-violet-600 text-lg">
-            Hotelio {{ ucfirst($role) }}
+            {{ config('app.name')." ".ucfirst( $role) }}
         </h1>
 
         <div class="flex items-center gap-4">

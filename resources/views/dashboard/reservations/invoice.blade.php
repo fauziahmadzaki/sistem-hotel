@@ -48,9 +48,9 @@
             {{-- Header Invoice --}}
             <div class="flex justify-between items-start pb-6 border-b border-gray-200">
                 <div>
-                    <h1 class="text-3xl font-bold text-violet-600">Hotelio</h1>
+                    <h1 class="text-3xl font-bold text-violet-600">{{ config('app.name') }}</h1>
                     <p class="text-sm text-gray-500">Jalan Merdeka No. 123, Kota, 12345</p>
-                    <p class="text-sm text-gray-500">admin@hotelio.com</p>
+                    <p class="text-sm text-gray-500">admin@voksinn.com</p>
                 </div>
                 <div class="text-right">
                     <h2 class="text-3xl font-semibold text-gray-800">INVOICE</h2>
@@ -70,9 +70,11 @@
                 <div class="text-right">
                     <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Detail Menginap:</h3>
                     <p class="text-sm text-gray-900">Check-in:
-                        {{ \Carbon\Carbon::parse($reservation->checkin_date)->format('d M Y') }}</p>
+                        {{ \Carbon\Carbon::parse($reservation->checkin_date)->format('d M Y') }}
+                    </p>
                     <p class="text-sm text-gray-900">Check-out:
-                        {{ \Carbon\Carbon::parse($reservation->checkout_date)->format('d M Y') }}</p>
+                        {{ \Carbon\Carbon::parse($reservation->checkout_date)->format('d M Y') }}
+                    </p>
                     <p class="text-sm text-gray-900">Durasi: {{ $durationInDays }} Hari</p>
                 </div>
             </div>
@@ -103,10 +105,12 @@
                                 <p class="text-sm text-gray-500">{{ $reservation->room->roomType->room_type_name }}</p>
                             </td>
                             <td class="px-6 py-4 text-right text-sm text-gray-700">Rp
-                                {{ number_format($reservation->room->room_price, 0, ',', '.') }}</td>
+                                {{ number_format($reservation->room->room_price, 0, ',', '.') }}
+                            </td>
                             <td class="px-6 py-4 text-right text-sm text-gray-700">x {{ $durationInDays }} hari</td>
                             <td class="px-6 py-4 text-right text-sm font-medium text-gray-900">Rp
-                                {{ number_format($roomCost, 0, ',', '.') }}</td>
+                                {{ number_format($roomCost, 0, ',', '.') }}
+                            </td>
                         </tr>
                         @if($reservation->fines > 0)
                         <tr>
@@ -118,7 +122,8 @@
                             <td class="px-6 py-4 text-right text-sm text-gray-700">-</td>
                             <td class="px-6 py-4 text-right text-sm text-gray-700">x 1</td>
                             <td class="px-6 py-4 text-right text-sm font-medium text-gray-900">Rp
-                                {{ number_format($reservation->fines, 0, ',', '.') }}</td>
+                                {{ number_format($reservation->fines, 0, ',', '.') }}
+                            </td>
                         </tr>
                         @endif
                     </tbody>
@@ -152,7 +157,7 @@
 
             {{-- Footer Invoice --}}
             <div class="mt-12 pt-6 border-t border-gray-200 text-center">
-                <p class="text-sm text-gray-500">Terima kasih telah menginap di Hotelio.</p>
+                <p class="text-sm text-gray-500">Terima kasih telah menginap di {{ config('app.name') }}.</p>
             </div>
         </div>
     </div>
