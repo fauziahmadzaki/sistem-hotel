@@ -4,6 +4,14 @@ $role = auth()->user()->role;
 $isSuperAdmin = $role === 'superadmin';
 $isAdmin = in_array($role, ['superadmin', 'admin']);
 $isHousekeeper = in_array($role, ['superadmin', 'housekeeper']);
+
+$routes = [
+'superadmin' => 'dashboard.superadmin.index',
+'admin' => 'dashboard.admin.index',
+'housekeeper' => 'dashboard.housekeeping.index',
+];
+
+$baseRoute = $routes[$role];
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -96,8 +104,7 @@ $isHousekeeper = in_array($role, ['superadmin', 'housekeeper']);
 
                     {{-- Tampilkan Dashboard Admin/Kasir --}}
                     @if ($isAdmin)
-                    <x-sidebar-link href="{{ route('dashboard.superadmin.index') }}"
-                        :active="request()->routeIs('dashboard.superadmin.index')">
+                    <x-sidebar-link href="{{ route($baseRoute) }}" :active="request()->routeIs($baseRoute)">
                         Dashboard
                     </x-sidebar-link>
                     @endif
